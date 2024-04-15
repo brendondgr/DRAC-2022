@@ -1,7 +1,7 @@
 import torch
 import time
 
-def train_model(model, train_loader, criterion, optimizer, epochs=10):
+def train_model(model, train_loader, criterion, optimizer, epochs=10, criterion_name='CrossEntropyLoss'):
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     
     model.to(device)
@@ -29,11 +29,14 @@ def train_model(model, train_loader, criterion, optimizer, epochs=10):
             # Initialize loss
             loss = 0
             
-            for mask in masks:
-                loss += criterion(outputs, mask.long())
-            
-            # Average the loss by the number of masks
-            loss /= len(masks)
+            if criterion_name == 'DiceLoss':
+                loss = criterion(outputs, masks)
+            else:
+                for mask in masks:
+                    loss += criterion(outputs, mask.long())
+                
+                # Average the loss by the number of masks
+                loss /= len(masks)
             
             # Take the mean of non-nan values
             scalar_loss = torch.mean(loss)
