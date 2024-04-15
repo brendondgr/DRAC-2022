@@ -77,7 +77,10 @@ class DRAC_Loader(Dataset):
             image = self.transform(image)
         
         # Convert PIL image to a Numpy Array
-        image = np.array(image)
+        if is_idx:
+            image = np.array(image)
+        else:
+            image = np.array(image) / 255.0
         
         # Convert image to a Pytorch Tensor
         image = torch.tensor(image, dtype=torch.float32)
