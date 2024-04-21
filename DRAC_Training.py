@@ -1,7 +1,7 @@
 import torch
 import time
 
-def train_model(model, train_loader, criterion, optimizer, epochs=10, criterion_name='CrossEntropyLoss'):
+def train_model(model, train_loader, criterion, optimizer, epochs=10, criterion_name='CrossEntropyLoss', segmentation_name = "intraretinal"):
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     
     model.to(device)
@@ -12,6 +12,8 @@ def train_model(model, train_loader, criterion, optimizer, epochs=10, criterion_
     
     # Losses list
     losses = []
+    
+    segmentations = ["intraretinal", "neovascular", "nonperfusion"]
     
     for epoch in range(epochs):
         running_loss = 0.0
@@ -29,14 +31,7 @@ def train_model(model, train_loader, criterion, optimizer, epochs=10, criterion_
             # Initialize loss
             loss = 0
             
-            if criterion_name == 'DiceLoss':
-                loss = criterion(outputs, masks)
-            else:
-                for mask in masks:
-                    loss += criterion(outputs, mask.long())
-                
-                # Average the loss by the number of masks
-                loss /= len(masks)
+            loss = criterion(outputs, masks.long())
             
             # Take the mean of non-nan values
             scalar_loss = torch.mean(loss)
@@ -53,14 +48,11 @@ def train_model(model, train_loader, criterion, optimizer, epochs=10, criterion_
             scalar_loss.backward()
             optimizer.step()
             
-            #print(scalar_loss)
-            #print(loss)
-            
             running_loss += scalar_loss.item()
             count += 1
-        
+    
         epoch_loss = running_loss / len(train_loader)
-        print(f'[Epoch {epoch + 1}/{epochs}] Loss: {epoch_loss:.4f} | Time Spent: {time.time() - epoch_time:.2f}s')
+        print(f'[Epoch {epoch + 1}/{epochs}] {segmentation_name} - Loss: {epoch_loss:.4f} | Time Spent: {time.time() - epoch_time:.2f}s')
         losses.append(epoch_loss)
     
     print(f'Training completed in {time.time() - start_time:.2f}s')
