@@ -38,7 +38,7 @@ def train_model(model, train_loader, criterion, optimizer, epochs=10, criterion_
             loss = criterion(outputs, targets.long())
             
             # Set the loss gradient to True
-            #loss.requires_grad = True
+            loss.requires_grad = True
 
             # Backward pass: compute the gradient of the loss with respect to model parameters
             loss.backward()
