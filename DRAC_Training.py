@@ -1,5 +1,6 @@
 import torch
 import time
+import collections
 
 def train_model(model, train_loader, criterion, optimizer, epochs=10, criterion_name='CrossEntropyLoss', segmentation_name = "intraretinal"):
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
@@ -13,45 +14,48 @@ def train_model(model, train_loader, criterion, optimizer, epochs=10, criterion_
     # Losses list
     losses = []
     
-    segmentations = ["intraretinal", "neovascular", "nonperfusion"]
-    
     for epoch in range(epochs):
         running_loss = 0.0
-        count = 0
+        correct_predictions = 0
+        total_predictions = 0
         epoch_time = time.time()
         
-        for images, masks in train_loader:
-            # Reorganize the images to be of shape [batch_size, channels, height, width]
-            images = images.permute(0, 3, 1, 2)
-            images = images.to(device)
-            
+        for batch_idx, (inputs, targets) in enumerate(train_loader):
+            # Move data to the appropriate device (CPU or GPU)
+            inputs, targets = inputs.to(device), targets.to(device)
+
+            # Zero the parameter gradients
             optimizer.zero_grad()
-            outputs = model(images)['out']
+
+            # Forward pass: compute the model output
+            outputs = model(inputs)
             
-            # Initialize loss
-            loss = 0
+            if isinstance(outputs, collections.OrderedDict):
+                # Assuming the output tensor is stored under the key 'out'
+                outputs = outputs['out']
+
+            # Calculate the loss
+            loss = criterion(outputs, targets.long())
             
-            loss = criterion(outputs, masks.long())
-            
-            # Take the mean of non-nan values
-            scalar_loss = torch.mean(loss)
-            
-            # Convert to float value
-            scalar_loss = scalar_loss.float()
-            
-            # Skips this iteration if value contained in loss tensor is nan
-            #print(count)
-            if torch.isnan(scalar_loss):
-                continue 
-            
-            # Backward pass and optimize
-            scalar_loss.backward()
+            # Set the loss gradient to True
+            #loss.requires_grad = True
+
+            # Backward pass: compute the gradient of the loss with respect to model parameters
+            loss.backward()
+
+            # Update the model weights
             optimizer.step()
-            
-            running_loss += scalar_loss.item()
-            count += 1
+
+            # Accumulate the loss and calculate accuracy
+            running_loss += loss.item()
+            _, predicted = torch.max(outputs.data, 1)
+            total_predictions += targets.size(0)
+            correct_predictions += (predicted == targets).sum().item()
     
+        # Calculate avereage loss and accuracy
         epoch_loss = running_loss / len(train_loader)
+        epoch_accuracy = 100 * correct_predictions / total_predictions
+    
         print(f'[Epoch {epoch + 1}/{epochs}] {segmentation_name} - Loss: {epoch_loss:.4f} | Time Spent: {time.time() - epoch_time:.2f}s')
         losses.append(epoch_loss)
     

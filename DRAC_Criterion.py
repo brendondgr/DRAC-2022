@@ -1,32 +1,37 @@
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
 
 class DiceLoss(nn.Module):
-    def __init__(self, smooth=1e-6):
+    def __init__(self, num_classes, smooth=1e-6):
         super(DiceLoss, self).__init__()
+        self.num_classes = num_classes
         self.smooth = smooth
 
-    def forward(self, outputs, masks):
-        # Reshape the outputs to (batch_size, num_classes, height, width)
-        outputs = outputs.reshape(outputs.size(0), outputs.size(1), outputs.size(2), outputs.size(3))
+    def forward(self, logits, targets):
+        """
+        Computes the Dice Loss for multi-class image segmentation.
         
-        # Apply softmax to the outputs
-        outputs = F.softmax(outputs, dim=1)
-
-        # Flatten the masks
-        masks_flat = [mask.view(-1) for mask in masks]
-
-        # Compute Dice Similarity Coefficient for each class
-        dice_loss = 0
-        for i, mask_flat in enumerate(masks_flat):
-            outputs_flat = outputs[:, i, :, :].contiguous().view(-1)
-            intersection = torch.sum(outputs_flat * mask_flat)
-            union = torch.sum(outputs_flat) + torch.sum(mask_flat)
-            dice_coeff = (2.0 * intersection + self.smooth) / (union + self.smooth)
-            dice_loss += 1 - dice_coeff
-
-        # Average the dice loss across all classes
-        dice_loss /= len(masks)
-
+        Args:
+            logits: a tensor of shape [B, C, H, W]. Corresponds to the raw output or logits of the model.
+            targets: a tensor of shape [B, H, W] or [B, 1, H, W].
+            
+        Returns:
+            dice_loss: the Sørensen-Dice loss.
+        """
+        # Convert targets to one-hot encoding
+        targets_one_hot = nn.functional.one_hot(targets, num_classes=self.num_classes).permute(0, 3, 1, 2)
+        targets_one_hot = targets_one_hot.float()
+        
+        # Compute softmax probabilities
+        probs = nn.functional.softmax(logits, dim=1)
+        
+        # Compute Dice coefficient for each class
+        dims = (2, 3)
+        intersection = torch.sum(probs * targets_one_hot, dims)
+        cardinality = torch.sum(probs + targets_one_hot, dims)
+        dice_coefficient = (2. * intersection + self.smooth) / (cardinality + self.smooth)
+        
+        # Compute mean Dice loss across classes
+        dice_loss = 1. - torch.mean(dice_coefficient)
+        
         return dice_loss

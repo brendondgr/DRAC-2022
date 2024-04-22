@@ -6,16 +6,18 @@ import numpy as np
 
 class DRAC_Loader(Dataset):
     def __init__(self, data_type, transform=None, mask = "intraretinal"):
+        # Set up the mask and data type
         self.mask = mask
+        self.data_type = data_type
+        
         # Local Variables
         self.data = 'data/Segmentation/Original/'
         self.label_loc = 'data/Segmentation/Groundtruths/'
-        if mask == "intraretinal":
-            self.intraretinal_loc = f'{self.label_loc}intraretinal'
-        elif mask == "neovascular":
-            self.neovascular_loc = f'{self.label_loc}neovascular'
-        elif mask == "nonperfusion":
-            self.nonperfusion_loc = f'{self.label_loc}nonperfusion'
+        
+        # Retrieve the location of the different masks
+        if mask == "intraretinal": self.intraretinal_loc = f'{self.label_loc}intraretinal' # String
+        elif mask == "neovascular": self.neovascular_loc = f'{self.label_loc}neovascular' # String
+        elif mask == "nonperfusion": self.nonperfusion_loc = f'{self.label_loc}nonperfusion' # String
         
         # Load Defaults
         self.data_loc = f'{self.data}{data_type}'
@@ -34,33 +36,40 @@ class DRAC_Loader(Dataset):
             self.neovascular_data = [self.OpenImage(i, self.neovascular_loc, is_idx = False) if i in os.listdir(self.neovascular_loc) else 0 for i in self.items_list]
         elif mask == "nonperfusion":
             self.nonperfusion_data = [self.OpenImage(i, self.nonperfusion_loc, is_idx = False) if i in os.listdir(self.nonperfusion_loc) else 0 for i in self.items_list]
-        
-        # List of number of classifications for each item.
-        # Cycle through each intraretinal, neovascular, and nonperfusion data, adding +1 where there is not a 0, and adding nothing where there is.
-        # self.classifications = self.NumberClassifications()
 
     def __getitem__(self, idx):
         # Primary image
-        image = self.data_list[idx]
+        image = self.OpenImage(idx, self.data_loc, is_idx = True)
         
-        # Blank list for the other images
-        segmentations = []
+        # Retrieve the name of the image at that index
+        image_name = self.items_list[idx]
         
         # Look for the other images, if not 0 at idx, append to segmentations.
         if self.mask == "intraretinal":
-            segmentations.append(self.intraretinal_data[idx])
+            segmentation = self.intraretinal_data[idx]
         elif self.mask == "neovascular":
-            segmentations.append(self.neovascular_data[idx])
+            segmentation = self.neovascular_data[idx]
         elif self.mask == "nonperfusion":
-            segmentations.append(self.nonperfusion_data[idx])
+            segmentation = self.nonperfusion_data[idx]
         
-        # Replace any 0s with a np array of 0s, with dtype=uint8, size 1024, 1024
-        segmentations = [np.zeros((1024, 1024), dtype=np.uint8) if isinstance(i, int) else i for i in segmentations]
+        # If segmentation is 0, set equal to 1024x1024 numpy array of 0s
+        if isinstance(segmentation, int):
+            segmentation = np.zeros((1024, 1024))
         
-        segmentation = segmentations[0]
+        # If the data type is test, change the segmentation to be the name of the item
+        if self.data_type == "test":
+            # Change segmentation to be a string that contains the items name
+            # Remove the ".png" from the end of the item name
+            segmentation = self.items_list[idx][:-4]
         
-        # Send to cuda:0
-        segmentation = torch.tensor(segmentation, dtype=torch.float32).to('cuda:0')
+        # Transforms
+        if self.transform:
+            image = self.transform(image)
+            segmentation = self.transform(segmentation)
+        
+        # Convert image and segmentation to a tensor and send to device.
+        image = torch.tensor(image).float().unsqueeze(0)
+        segmentation = torch.tensor(segmentation).float()
         
         return image, segmentation
             
@@ -70,16 +79,17 @@ class DRAC_Loader(Dataset):
     def OpenImage(self, idx, location, is_idx = True):
         if is_idx:
             location = f'{location}/{self.items_list[idx]}'
-            image = Image.open(location).convert('RGB')
+            image = Image.open(location)
         else:
             # Get proper location
             location = f'{location}/{idx}'
             
-            # Load Item in passed location
-            image = Image.open(location).convert("L")
-        
-        if self.transform:
-            image = self.transform(image)
+            # Check if location exists
+            if os.path.exists(location):
+                # Load Item in passed location
+                image = Image.open(location)
+            else:
+                return 0
         
         # Convert PIL image to a Numpy Array
         if is_idx:
@@ -87,21 +97,4 @@ class DRAC_Loader(Dataset):
         else:
             image = np.array(image) / 255.0
         
-        # Convert image to a Pytorch Tensor
-        image = torch.tensor(image, dtype=torch.float32)
-        
-        # Send to device
-        image = image.to('cuda:0')
-        
         return image
-    
-    def NumberClassifications(self):
-        classes = [1 if isinstance(self.intraretinal_data[i], int) else 0 for i in range(len(self.items_list))]
-        classes = [classes[i] + 1 if isinstance(self.neovascular_data[i], int) else classes[i] for i in range(len(self.items_list))]
-        classes = [classes[i] + 1 if isinstance(self.nonperfusion_data[i], int) else classes[i] for i in range(len(self.items_list))]
-        return classes
-    
-    
-    
-if __name__ == '__main__':
-    import os
