@@ -21,6 +21,18 @@ def train_model(model, train_loader, criterion, optimizer, epochs=10, criterion_
         epoch_time = time.time()
         
         for batch_idx, (inputs, targets) in enumerate(train_loader):
+            '''import matplotlib.pyplot as plt
+            
+            # Plot both inputs and targets on the same figure, separate plots
+            fig, axs = plt.subplots(1, 2)
+            axs[0].imshow(inputs[0, 0, :, :].cpu().numpy())
+            axs[0].set_title('Input')
+            axs[1].imshow(targets[0, :, :].cpu().numpy())
+            axs[1].set_title('Target')
+            
+            # Save this plot as a png in "graphs" folder as the batch_idx-th image
+            plt.savefig(f'graphs/{batch_idx}.png')  '''          
+            
             # Move data to the appropriate device (CPU or GPU)
             inputs, targets = inputs.to(device), targets.to(device)
 
