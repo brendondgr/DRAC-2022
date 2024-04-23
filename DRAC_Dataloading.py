@@ -98,3 +98,13 @@ class DRAC_Loader(Dataset):
             image = np.array(image) / 255.0
         
         return image
+    
+    def print_gpu_memory_usage(self, when_use):
+        import GPUtil
+        gpus = GPUtil.getGPUs()
+        for gpu in gpus:
+            print(f"GPU: {gpu.name} @ {when_use}")
+            print(f"Total VRAM: {gpu.memoryTotal / 1024:.2f} GB")
+            print(f"Used VRAM: {gpu.memoryUsed / 1024:.2f} GB")
+            print(f"Free VRAM: {gpu.memoryFree / 1024:.2f} GB")
+            print(f"GPU Load: {gpu.load * 100:.2f}%\n")
