@@ -7,20 +7,14 @@ from torchvision import transforms
 
 
 class DRAC_Loader(Dataset):
-    def __init__(self, data = [], data_names = [], labels_loc = [], label_names = [], data_type = "train", mask = "intraretinal", transform=None, rotation = False):
+    def __init__(self, data = [], data_names = [], transform=None):
         # Intialize the basic variables
         self.data_loc = data
         self.image_names = data_names
-        self.labels_loc = labels_loc
-        self.label_names = label_names
-        self.data_type = data_type
-        self.mask = mask
         self.transform = transform
-        self.rotation = rotation
         
         # Load the data
         self.images = self.load_data(self.data_loc)
-        self.labels = self.load_data(self.labels_loc)
     
     def __len__(self):
         return len(self.images)
@@ -29,26 +23,12 @@ class DRAC_Loader(Dataset):
         image = self.images[idx]
         image_name = self.image_names[idx]
         
-        # Look for image_name in label_names, if does not exist, return None
-        try:
-            label_idx = self.label_names.index(image_name)
-            label = self.labels[label_idx]            
-        except:
-            label = np.zeros((1024, 1024))
-        
         # Apply the transformations
         if self.transform:
             # Apply a ToTensor transformation
             image = self.transform(image)
-            label = self.transform(label)
-            
-        # If rotation is True, apply random rotation, 90, 180, 270 degrees
-        if self.rotation:
-            rotation = np.random.randint(0, 4)
-            image = np.rot90(image, rotation)
-            label = np.rot90(label, rotation)
         
-        return image, label
+        return image
     
     def load_data(self, data):
         # Load data from "data" list, which is a list of paths to the images
