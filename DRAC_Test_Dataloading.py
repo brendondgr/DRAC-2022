@@ -6,7 +6,7 @@ import torch
 from torchvision import transforms
 
 
-class DRAC_Loader(Dataset):
+class DRAC_Test_Loader(Dataset):
     def __init__(self, data = [], data_names = [], transform=None):
         # Intialize the basic variables
         self.data_loc = data
@@ -28,7 +28,7 @@ class DRAC_Loader(Dataset):
             # Apply a ToTensor transformation
             image = self.transform(image)
         
-        return image
+        return {'image': image}
     
     def load_data(self, data):
         # Load data from "data" list, which is a list of paths to the images

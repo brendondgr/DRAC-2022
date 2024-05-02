@@ -6,6 +6,7 @@ import GPUtil
 from GPUtil import showUtilization as gpu_usage
 from collections import defaultdict
 from torch.utils.tensorboard import SummaryWriter
+from torchvision import transforms
 
 def print_gpu_memory_usage(when_use):
     gpus = GPUtil.getGPUs()
@@ -22,6 +23,9 @@ def current_memory_usage():
 def train_model(model, train_loader, valid_loader, criterion, optimizer, epochs=10, criterion_name='CrossEntropyLoss', segmentation_name = "intraretinal"):
     # Initialize a dictionary to store training and validation statistics
     stats = defaultdict(list)
+    
+    # Create Device
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     
     # Intialize the Tensorboard Writer
     #writer = SummaryWriter()
@@ -42,7 +46,7 @@ def train_model(model, train_loader, valid_loader, criterion, optimizer, epochs=
         
         for inputs, labels in train_loader:
             # Move the inputs and labels to the GPU
-            inputs, labels = inputs.cuda(), labels.cuda()
+            inputs, labels = (inputs.cuda()).float(), labels.cuda()
             
             # Zero the parameter gradients
             optimizer.zero_grad()
@@ -50,7 +54,7 @@ def train_model(model, train_loader, valid_loader, criterion, optimizer, epochs=
             # Forward pass
             outputs = model(inputs)
             
-            # Loss
+            # Compute loss using the original outputs
             loss = criterion(outputs, labels)
             
             # Backward pass
@@ -58,6 +62,9 @@ def train_model(model, train_loader, valid_loader, criterion, optimizer, epochs=
             
             # Optimize
             optimizer.step()
+            
+            # Convert outputs to 0 or 1 for evaluation or logging
+            binary_outputs = torch.where(outputs > 0.5, torch.tensor(1.0, device=outputs.device), torch.tensor(0.0, device=outputs.device))
             
             # Accumulate loss
             running_loss += loss.item()
@@ -74,7 +81,7 @@ def train_model(model, train_loader, valid_loader, criterion, optimizer, epochs=
         valid_loss = 0.0
         with torch.no_grad():
             for inputs, labels in valid_loader:
-                inputs, labels = inputs.cuda(), labels.cuda()
+                inputs, labels = (inputs.cuda()).float(), labels.cuda()
                 outputs = model(inputs)
                 loss = criterion(outputs, labels)
                 valid_loss += loss.item()

@@ -26,13 +26,14 @@ class DRAC_Loader(Dataset):
         return len(self.images)
     
     def __getitem__(self, idx):
-        image = self.images[idx]
+        image = self.images[idx]/255.0
         image_name = self.image_names[idx]
         
         # Look for image_name in label_names, if does not exist, return None
         try:
             label_idx = self.label_names.index(image_name)
-            label = self.labels[label_idx]            
+            label = self.labels[label_idx]
+            #print(f"Found Label at index {label_idx} for {image_name}")
         except:
             label = np.zeros((1024, 1024))
         
